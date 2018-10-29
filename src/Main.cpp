@@ -151,6 +151,7 @@ int main( int argc, char *argv[] )
         int easy = 0;
         int medium = 0;
         int expert = 0;
+        string fail = "";
 
         while ((ent = readdir(dir)) != NULL)
         {
@@ -171,6 +172,10 @@ int main( int argc, char *argv[] )
                     ++medium;
                 else if (score == 1)
                     ++easy;
+                else{
+                    fail += ent->d_name;
+                    fail += " \n";
+                }
             }
             catch (...) {
                 sumOfScores = 0;
@@ -190,6 +195,7 @@ int main( int argc, char *argv[] )
             cout << "medium: "  << medium << endl;
             cout << "expert: " << expert << endl;
             cout << "score: " << sumOfScores << endl;
+            //cout << fail << endl;
         }
         else
         {
@@ -199,6 +205,7 @@ int main( int argc, char *argv[] )
             file << "medium: " << medium << endl;
             file << "expert: " << expert << endl;
             file << "score: " << sumOfScores << endl;
+            file << fail << endl;
             file.close();
         }
         return 0;

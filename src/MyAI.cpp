@@ -96,7 +96,7 @@ Agent::Action MyAI::getAction( int number )
         zeroTiles.erase(zeroTiles.begin(), zeroTiles.begin()+size);
     }
 
-    // Uncover/Flag the easy inferring (can be easly inferred by one edge tile) boundary tiles
+    // Uncover/Flag the easy boundary tiles (can be easly inferred by one edge tile)
     if(actionQueue.empty()){
         cout << endl << "-- edge Tiles easy case --" << endl;
         cout << "edgeTiles size = " << edgeTiles.size() << endl;
@@ -226,7 +226,7 @@ vector<vector<int>> MyAI::getCombination(vector<int> ary){
 void MyAI::dfsMines(vector<vector<Action>>& configs, vector<Action>& config, vector<pair<int, int>>& edgTiles, int index, int flagged){
     if(flagged > remain_mines) return;
     if(index == edgTiles.size()){
-        printConfig(config);
+        //printConfig(config);
         if(!config.empty()) configs.push_back(config);
         return;
     }

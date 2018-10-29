@@ -1,0 +1,2 @@
+ ./bin/Minesweeper.exe -fv ./input
+mingw32-make
