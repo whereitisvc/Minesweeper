@@ -27,6 +27,7 @@
 #include <set>
 #include <algorithm>
 #include <climits>
+#include <math.h>
 
 using namespace std;
 
@@ -74,12 +75,14 @@ private:
 	void 					uncoverNeighborTiles(int c, int r);			// uncover the neghbor tiles
 	bool 					checkBoundTiles(int x, int y); 				// uncover/flag the neighbor tiles if for sure, return false if no neighbor tiles
 
-	void 					act2SafeTilebyStat(map<pair<int, int>, int>& s, int csize);
-	void 					caculateMineStat(map<pair<int, int>, int>& s, 
+	bool 					neighbor(pair<int, int> a, pair<int, int> b);
+	void 					edgeTilesSegment(vector<vector<pair<int, int>>>& segment);
+	void 					act2SafeTilebyStat(map<pair<int, int>, float>& s);
+	void 					caculateMineStat(map<pair<int, int>, float>& s, 
 											vector<vector<Action>>& c);
-	void 					bestGuessbyStat(map<pair<int, int>, int>& s);
+	void 					bestGuessbyStat(map<pair<int, int>, float>& s);
 
-	vector<vector<Action>> 	findMinesConfig();							// find all the possible configurations
+	vector<vector<Action>> 	findMinesConfig(vector<pair<int, int>>& a);	// find all the possible configurations
 	void 					setConfig(vector<Action> config);			// push the config to actionQueue
 	void 					printConfig(vector<Action> config);
 	vector<vector<int>> 	getCombination(vector<int> ary);			// generate combination of array, note: the input ary must be lexicographicaly sorted

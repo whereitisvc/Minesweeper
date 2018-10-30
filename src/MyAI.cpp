@@ -116,34 +116,39 @@ Agent::Action MyAI::getAction( int number )
         cout << endl << "-- edge Tiles medium case --" << endl;
         cout << "edgeTiles size = " << edgeTiles.size() << endl;
 
-        vector<vector<Action>> configs = findMinesConfig();
+        vector<vector<pair<int, int>>> segment;
+        edgeTilesSegment(segment);
 
-        if(configs.empty()) 
-            cout << "no config found" << endl;
+        map<pair<int, int>, float> mine_stat;
+        for(int i=0; i<segment.size(); i++){
+            cout << endl << "area " << i  << " size = " << segment[i].size() << endl;
 
-        else if(configs.size() == 1){
-            cout << "only one configuration found, great!" << endl;
-            setConfig(configs[0]);
-            edgeTiles.clear();
-        }
+            vector<vector<Action>> configs = findMinesConfig(segment[i]);
 
-        else{
-            cout << "possible configs: " << configs.size() << endl;
-            
-            // caculate the possibility of mine for each edge tile
-            map<pair<int, int>, int> mine_stat;
-            caculateMineStat(mine_stat, configs);
+            if(configs.empty()) 
+                cout << "no config found" << endl;
 
-            // check if have any 100% sure tile
-            act2SafeTilebyStat(mine_stat, configs.size());
-            
-            // In this case, no 100% safe or 100% mine boundary tile. Make the best guess by probility
-            if(actionQueue.empty()){
-                cout << endl << "-- edge Tiles hard case --" << endl;
-                bestGuessbyStat(mine_stat);
+            else if(configs.size() == 1){
+                cout << "only one configuration found, great!" << endl;
+                setConfig(configs[0]);
+            }
+
+            else{
+                cout << "possible configs: " << configs.size() << endl;
+
+                // caculate the possibility of mine for each edge tile
+                caculateMineStat(mine_stat, configs);
+
+                // check if have any 100% sure tile
+                act2SafeTilebyStat(mine_stat);                
             }
         }
 
+        // In this case, no 100% safe or 100% mine boundary tile. Make the best guess by probility
+        if(actionQueue.empty()){
+            cout << endl << "-- edge Tiles hard case --" << endl;
+            bestGuessbyStat(mine_stat);
+        }
     }
 
     cout << "****************** AI INFO END *************************" << endl << endl << endl << endl;
@@ -159,8 +164,31 @@ Agent::Action MyAI::getAction( int number )
 // YOUR CODE BEGINS
 // ======================================================================
 
-void MyAI:: bestGuessbyStat(map<pair<int, int>, int>& stat){
-    int min = INT_MAX;
+bool MyAI::neighbor(pair<int, int> a, pair<int, int> b){
+    float dist = sqrt(  pow(a.first-b.first, 2) + pow(a.second-b.second, 2) );
+    if(dist <= sqrt(2)) return true;
+    return false;
+}
+
+void MyAI::edgeTilesSegment(vector<vector<pair<int, int>>>& segment){
+    for(auto edg: edgeTiles){
+        bool found = false;
+        for(int i=0; i<segment.size(); i++){
+            for(auto s: segment[i])
+                if(neighbor(edg, s)){ 
+                    segment[i].push_back(edg);
+                    found = true;
+                    break;
+                }
+            if(found) break;
+        }
+        if(!found) segment.push_back({edg});
+    }
+}
+
+void MyAI::bestGuessbyStat(map<pair<int, int>, float>& stat){
+    if(stat.empty()) return;
+    float min = INT_MAX;
     pair<int, int> tile;
     for(auto it:stat){
         if(it.second < min){ 
@@ -172,14 +200,14 @@ void MyAI:: bestGuessbyStat(map<pair<int, int>, int>& stat){
     actionQueue.push_back({UNCOVER, tile.first, tile.second});
 }
 
-void MyAI::act2SafeTilebyStat(map<pair<int, int>, int>& stat, int configs_size){
+void MyAI::act2SafeTilebyStat(map<pair<int, int>, float>& stat){
     for(auto it: stat){
         if(it.second == 0){
             int x = it.first.first;
             int y = it.first.second;
             actionQueue.push_back({UNCOVER, x, y});
         }
-        else if(it.second == configs_size){
+        else if(it.second == 1){
             int x = it.first.first;
             int y = it.first.second;
             actionQueue.push_back({FLAG, x, y});
@@ -187,14 +215,22 @@ void MyAI::act2SafeTilebyStat(map<pair<int, int>, int>& stat, int configs_size){
     }
 }
 
-void MyAI::caculateMineStat(map<pair<int, int>, int>& stat, vector<vector<Action>>& configs){
+void MyAI::caculateMineStat(map<pair<int, int>, float>& stat, vector<vector<Action>>& configs){
+    set<pair<int, int>> set;
     for(auto config: configs){
         for(auto act: config){
             pair<int, int> key {act.x, act.y};
             if(stat.find(key) == stat.end()) stat.insert({key, 0});
-            if(act.action == FLAG)
+            if(act.action == FLAG){
                 stat[key]++;
+                set.insert(key);
+            }
         }
+    }
+
+    for(auto key: set){    
+        stat[key] /= configs.size(); 
+        //cout << stat[key] << endl; 
     }
 }
 
@@ -291,10 +327,10 @@ void MyAI::dfsMines(vector<vector<Action>>& configs, vector<Action>& config, vec
 
 }
 
-vector<vector<Agent::Action>> MyAI::findMinesConfig(){
+vector<vector<Agent::Action>> MyAI::findMinesConfig(vector<pair<int, int>>& area){
     vector<vector<Action>> configs;
     vector<Action> config;
-    vector<pair<int, int>> edgTiles (edgeTiles.begin(), edgeTiles.end());
+    vector<pair<int, int>> edgTiles (area.begin(), area.end());
     dfsMines(configs, config, edgTiles, 0, 0);
     //edgeTiles.clear();
     return configs;
