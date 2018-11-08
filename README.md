@@ -22,6 +22,14 @@ current performance
 
 
 
+after considering unexplored area
+
+- easy: 862/1000
+- medium: 718/1000
+- expert: 350/1000
+
+
+
 What 's next to do: 
 
 - ~~edge tile segmentation (the optimization mentioned in the link above)~~
