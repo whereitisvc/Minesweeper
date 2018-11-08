@@ -27,12 +27,13 @@ MyAI::MyAI ( int _rowDimension, int _colDimension, int _totalMines, int _agentX,
     rows = _rowDimension;
     cols = _colDimension;
     remain_mines = _totalMines;
+    remain_tiles = rows * cols - 1;
     agentX = _agentX;
     agentY = _agentY;
 
     board = new Tile*[cols];
-        for ( int index = 0; index < cols; ++index )
-            board[index] = new Tile[rows];
+    for ( int index = 0; index < cols; ++index )
+        board[index] = new Tile[rows];
 
     actionQueue.assign({});
 
@@ -40,10 +41,8 @@ MyAI::MyAI ( int _rowDimension, int _colDimension, int _totalMines, int _agentX,
     board[agentX][agentY].uncovered = false;
     uncoverNeighborTiles(agentX, agentY);
 
-    // startX = cols;
-    // startY = -1;
-    // endX = -1;
-    // endY = rows;
+    srand( time(NULL) );
+
     // ======================================================================
     // YOUR CODE ENDS
     // ======================================================================
@@ -57,21 +56,16 @@ Agent::Action MyAI::getAction( int number )
 
     // precept the response from the environment
     if(lastAction == UNCOVER && board[agentX][agentY].uncovered){
+        remain_tiles--;
         board[agentX][agentY].uncovered = false;
         board[agentX][agentY].number = number;
         if(number == 0) zeroTiles.push_back({agentX, agentY});
         else{ 
             edgeTiles.insert({agentX, agentY});
-            // startX = min(agentX, startX);
-            // startY = max(agentY, startY);
-            // endX = max(agentX, endX);
-            // endY = min(agentY, endY);
-            // cout << "agent: " << agentX+1 << ", " << agentY+1 << endl;
-            // cout << "start: " << startX+1 << ", " << startY+1 << endl;
-            // cout << "end: " << endX+1 << ", " << endY+1 << endl;
         }
     }
     else if(lastAction == FLAG && board[agentX][agentY].uncovered){
+        remain_tiles--;
         remain_mines--;
         board[agentX][agentY].flag = true;
         board[agentX][agentY].visited = true;
@@ -120,10 +114,13 @@ Agent::Action MyAI::getAction( int number )
         edgeTilesSegment(segment);
 
         map<pair<int, int>, float> mine_stat;
+        int total_min = 0;
         for(int i=0; i<segment.size(); i++){
-            cout << endl << "area " << i  << " size = " << segment[i].size() << endl;
+            //cout << endl << "area " << i  << " size = " << segment[i].size() << endl;
 
-            vector<vector<Action>> configs = findMinesConfig(segment[i]);
+            int min_mine = INT_MAX;
+            vector<vector<Action>> configs = findMinesConfig(segment[i], min_mine);
+            total_min += (min_mine == INT_MAX) ? 0 : min_mine;
 
             if(configs.empty()) 
                 cout << "no config found" << endl;
@@ -147,7 +144,7 @@ Agent::Action MyAI::getAction( int number )
         // In this case, no 100% safe or 100% mine boundary tile. Make the best guess by probility
         if(actionQueue.empty()){
             cout << endl << "-- edge Tiles hard case --" << endl;
-            bestGuessbyStat(mine_stat);
+            bestGuessbyStat(mine_stat, total_min);
         }
     }
 
@@ -164,9 +161,18 @@ Agent::Action MyAI::getAction( int number )
 // YOUR CODE BEGINS
 // ======================================================================
 
+bool MyAI::unexplore(int x, int y){
+    if(!board[x][y].uncovered || board[x][y].flag) return false;
+    for(auto edg: edgeTiles){
+        //int dist = abs(edg.first - x) + abs(edg.second - y);
+        if(neighbor(edg, {x, y})) return false;
+    }
+    return true;
+}
+
 bool MyAI::neighbor(pair<int, int> a, pair<int, int> b){
-    float dist = sqrt(  pow(a.first-b.first, 2) + pow(a.second-b.second, 2) );
-    if(dist <= sqrt(2)) return true;
+    int dist = abs(a.first - b.first) + abs(a.second - b.second);
+    if (dist <= 2) return true;
     return false;
 }
 
@@ -186,7 +192,7 @@ void MyAI::edgeTilesSegment(vector<vector<pair<int, int>>>& segment){
     }
 }
 
-void MyAI::bestGuessbyStat(map<pair<int, int>, float>& stat){
+void MyAI::bestGuessbyStat(map<pair<int, int>, float>& stat, int& total_min){
     if(stat.empty()) return;
     float min = INT_MAX;
     pair<int, int> tile;
@@ -196,8 +202,34 @@ void MyAI::bestGuessbyStat(map<pair<int, int>, float>& stat){
             min = it.second;
         }
     }
-    cout << "min = " << min << ", (" << tile.first+1 << ", " << tile.second+1 << ")" << endl;
-    actionQueue.push_back({UNCOVER, tile.first, tile.second});
+
+    int unexp_mines = remain_mines - total_min; // the largest number of mines in unexplored area
+    int unexp_tiles = 0; // the number of tiles in unexplored area
+    for(int i=0; i<cols; i++){
+        for(int j=0; j<rows; j++){
+            if(unexplore(i, j)){
+                unexp_tiles++;
+            }
+        }
+    }
+
+    // unexplore area  vs  explored area
+    float prob = (unexp_tiles == 0) ? 1 : (float) unexp_mines / unexp_tiles;
+    if(min <= prob){
+        cout << "min = " << min << ", (" << tile.first + 1 << ", " << tile.second + 1 << ")" << endl;
+        actionQueue.push_back({UNCOVER, tile.first, tile.second});
+    }
+    else{
+        int rx = rand() % cols;
+        int ry = rand() % rows;
+        while( !unexplore(rx, ry) ){
+            rx = rand() % cols;
+            ry = rand() % rows;
+        }
+        actionQueue.push_back({UNCOVER, rx, ry});
+        cout << "do random guess, (" << rx+1 << ", " << ry+1 << ")" << endl;
+    }
+    
 }
 
 void MyAI::act2SafeTilebyStat(map<pair<int, int>, float>& stat){
@@ -259,11 +291,17 @@ vector<vector<int>> MyAI::getCombination(vector<int> ary){
     return res;
 }
 
-void MyAI::dfsMines(vector<vector<Action>>& configs, vector<Action>& config, vector<pair<int, int>>& edgTiles, int index, int flagged){
+void MyAI::dfsMines(vector<vector<Action>>& configs, vector<Action>& config, vector<pair<int, int>>& edgTiles, int index, int flagged, int& min_mine){
     if(flagged > remain_mines) return;
     if(index == edgTiles.size()){
         //printConfig(config);
-        if(!config.empty()) configs.push_back(config);
+        if(!config.empty()) {
+            configs.push_back(config);
+
+            int count = 0;
+            for(auto a: config) if(a.action == FLAG) count++;
+            if(count < min_mine) min_mine = count;
+        }
         return;
     }
 
@@ -287,7 +325,7 @@ void MyAI::dfsMines(vector<vector<Action>>& configs, vector<Action>& config, vec
     if(mines > number) return;
     if(mines + tiles.size() < number) return;
     if(tiles.empty()){ 
-        dfsMines(configs, config, edgTiles, index+1, flagged);
+        dfsMines(configs, config, edgTiles, index+1, flagged, min_mine);
         return;
     }
 
@@ -315,7 +353,7 @@ void MyAI::dfsMines(vector<vector<Action>>& configs, vector<Action>& config, vec
                 board[tx][ty].visited = true;
             }
         }
-        dfsMines(configs, config, edgTiles, index+1, flagged+remain);
+        dfsMines(configs, config, edgTiles, index+1, flagged+remain, min_mine);
         for(int i=0; i<tiles.size(); i++){
             tx = tiles[i].first;
             ty = tiles[i].second;
@@ -327,11 +365,11 @@ void MyAI::dfsMines(vector<vector<Action>>& configs, vector<Action>& config, vec
 
 }
 
-vector<vector<Agent::Action>> MyAI::findMinesConfig(vector<pair<int, int>>& area){
+vector<vector<Agent::Action>> MyAI::findMinesConfig(vector<pair<int, int>>& area, int& min_mine){
     vector<vector<Action>> configs;
     vector<Action> config;
     vector<pair<int, int>> edgTiles (area.begin(), area.end());
-    dfsMines(configs, config, edgTiles, 0, 0);
+    dfsMines(configs, config, edgTiles, 0, 0, min_mine);
     //edgeTiles.clear();
     return configs;
 }

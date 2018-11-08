@@ -28,6 +28,8 @@
 #include <algorithm>
 #include <climits>
 #include <math.h>
+#include <stdlib.h>
+#include <time.h>
 
 using namespace std;
 
@@ -52,6 +54,8 @@ private:
     };
 
     int remain_mines;		// the remaining unflagged mines
+	int remain_tiles;		// the remaining covered tiles
+
     int rows;
     int cols;
     Tile**	board;	// the board MyAI percepts so far
@@ -75,21 +79,22 @@ private:
 	void 					uncoverNeighborTiles(int c, int r);			// uncover the neghbor tiles
 	bool 					checkBoundTiles(int x, int y); 				// uncover/flag the neighbor tiles if for sure, return false if no neighbor tiles
 
+	bool 					unexplore(int x, int y);
 	bool 					neighbor(pair<int, int> a, pair<int, int> b);
 	void 					edgeTilesSegment(vector<vector<pair<int, int>>>& segment);
 	void 					act2SafeTilebyStat(map<pair<int, int>, float>& s);
 	void 					caculateMineStat(map<pair<int, int>, float>& s, 
 											vector<vector<Action>>& c);
-	void 					bestGuessbyStat(map<pair<int, int>, float>& s);
+	void 					bestGuessbyStat(map<pair<int, int>, float>& s, int& t);
 
-	vector<vector<Action>> 	findMinesConfig(vector<pair<int, int>>& a);	// find all the possible configurations
+	vector<vector<Action>> 	findMinesConfig(vector<pair<int, int>>& a, int& m);	// find all the possible configurations
 	void 					setConfig(vector<Action> config);			// push the config to actionQueue
 	void 					printConfig(vector<Action> config);
 	vector<vector<int>> 	getCombination(vector<int> ary);			// generate combination of array, note: the input ary must be lexicographicaly sorted
 	void 					dfsMines(vector<vector<Action>>& configs, 	// dfs for finding mines configuration	
 									vector<Action>& config, 
 									vector<pair<int, int>>& edgTiles,
-									int index, int flagged);
+									int index, int flagged, int& m);
 
     Action 					popActionQueue();							// do the first action in actionQueue
     bool 					isInBounds ( int c, int r );
