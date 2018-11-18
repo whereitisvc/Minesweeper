@@ -177,19 +177,65 @@ bool MyAI::neighbor(pair<int, int> a, pair<int, int> b){
 }
 
 void MyAI::edgeTilesSegment(vector<vector<pair<int, int>>>& segment){
+    if(edgeTiles.empty()) return;
+    
+    // index map to edgeTile 
+    map<int, pair<int, int>> idx2tile;
+    int idx = 0;
     for(auto edg: edgeTiles){
-        bool found = false;
-        for(int i=0; i<segment.size(); i++){
-            for(auto s: segment[i])
-                if(neighbor(edg, s)){ 
-                    segment[i].push_back(edg);
-                    found = true;
-                    break;
-                }
-            if(found) break;
-        }
-        if(!found) segment.push_back({edg});
+        idx2tile.insert({idx++, edg});
     }
+
+    // Union Find
+    vector<int> parent(idx, 0);
+    for(int i=0; i<parent.size(); i++){
+        parent[i] = i;
+    }
+
+    for(int i=0; i<parent.size()-1; i++){
+        for(int j=i+1; j<parent.size(); j++){
+            if(i == j) continue;
+            if( neighbor(idx2tile[i], idx2tile[j]) ){
+                // merge two set
+                if(parent[i] < parent[j]) parent[j] = parent[i];
+                else parent[i] = parent[j];
+            }
+        }
+    }
+
+    // identify the group of each edge tile
+    map<int, vector<int>> groups;
+    for(int i=0; i<parent.size(); i++){
+        int root = i;
+        while(root != parent[root]) root = parent[root];
+        if(groups.find(root) == groups.end())
+            groups.insert( {root, {i}} );
+        else
+            groups[root].push_back(i);
+    }
+
+    int i = 0;
+    for(auto iter: groups){
+        segment.push_back({});
+        for(auto idx: iter.second){
+            segment[i].push_back(idx2tile[idx]);
+        }
+        i++;
+    }
+
+    // for(auto edg: edgeTiles){
+    //     bool found = false;
+    //     for(int i=0; i<segment.size(); i++){
+    //         for(auto s: segment[i])
+    //             if(neighbor(edg, s)){ 
+    //                 segment[i].push_back(edg);
+    //                 found = true;
+    //                 break;
+    //             }
+    //         if(found) break;
+    //     }
+    //     if(!found) segment.push_back({edg});
+    // }
 }
 
 void MyAI::bestGuessbyStat(map<pair<int, int>, float>& stat, int& total_min){
@@ -204,30 +250,25 @@ void MyAI::bestGuessbyStat(map<pair<int, int>, float>& stat, int& total_min){
     }
 
     int unexp_mines = remain_mines - total_min; // the largest number of mines in unexplored area
-    int unexp_tiles = 0; // the number of tiles in unexplored area
+    vector<pair<int, int>> unexp_tiles; // the number of tiles in unexplored area
     for(int i=0; i<cols; i++){
         for(int j=0; j<rows; j++){
             if(unexplore(i, j)){
-                unexp_tiles++;
+                unexp_tiles.push_back({i, j});
             }
         }
     }
 
-    // unexplore area  vs  explored area
-    float prob = (unexp_tiles == 0) ? 1 : (float) unexp_mines / unexp_tiles;
+    // unexplored area  vs  explored area
+    float prob = unexp_tiles.empty() ? 1 : (float) unexp_mines / unexp_tiles.size();
     if(min <= prob){
         cout << "min = " << min << ", (" << tile.first + 1 << ", " << tile.second + 1 << ")" << endl;
         actionQueue.push_back({UNCOVER, tile.first, tile.second});
     }
     else{
-        int rx = rand() % cols;
-        int ry = rand() % rows;
-        while( !unexplore(rx, ry) ){
-            rx = rand() % cols;
-            ry = rand() % rows;
-        }
-        actionQueue.push_back({UNCOVER, rx, ry});
-        cout << "do random guess, (" << rx+1 << ", " << ry+1 << ")" << endl;
+        int ri = rand() % unexp_tiles.size();
+        actionQueue.push_back({UNCOVER, unexp_tiles[ri].first, unexp_tiles[ri].second});
+        cout << "do random guess, (" << unexp_tiles[ri].first+1 << ", " << unexp_tiles[ri].second+1 << ")" << endl;
     }
     
 }
