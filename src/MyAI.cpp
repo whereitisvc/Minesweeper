@@ -76,14 +76,8 @@ Agent::Action MyAI::getAction( int number )
         actionQueue.erase(actionQueue.begin());
     }
 
-
-    cout << "****************** AI INFO START ***********************" << endl;
-    cout << "actionQueue size = " << actionQueue.size() << endl;
-
     // Uncover the neighbor tiles of "zero" tile first
     if(actionQueue.empty()){
-        cout << endl << "-- zero Tiles case --" << endl;
-        cout << "zeroTiles size = " << zeroTiles.size() << endl;
         int size = zeroTiles.size();
         for(auto tile: zeroTiles)
             uncoverNeighborTiles(tile.first, tile.second);
@@ -92,8 +86,6 @@ Agent::Action MyAI::getAction( int number )
 
     // Uncover/Flag the easy boundary tiles (can be easly inferred by one edge tile)
     if(actionQueue.empty()){
-        cout << endl << "-- edge Tiles easy case --" << endl;
-        cout << "edgeTiles size = " << edgeTiles.size() << endl;
         vector<pair<int, int>> blacklist;
         for(auto tile: edgeTiles){
             bool keep = checkBoundTiles(tile.first, tile.second);
@@ -107,32 +99,22 @@ Agent::Action MyAI::getAction( int number )
     // Caculate all the configurations and make the best decision
     if(actionQueue.empty()){
 
-        cout << endl << "-- edge Tiles medium case --" << endl;
-        cout << "edgeTiles size = " << edgeTiles.size() << endl;
-
         vector<vector<pair<int, int>>> segment;
         edgeTilesSegment(segment);
 
         map<pair<int, int>, float> mine_stat;
         int total_min = 0;
         for(int i=0; i<segment.size(); i++){
-            //cout << endl << "area " << i  << " size = " << segment[i].size() << endl;
 
             int min_mine = INT_MAX;
             vector<vector<Action>> configs = findMinesConfig(segment[i], min_mine);
             total_min += (min_mine == INT_MAX) ? 0 : min_mine;
 
-            if(configs.empty()) 
-                cout << "no config found" << endl;
-
+            if(configs.empty()) ;
             else if(configs.size() == 1){
-                cout << "only one configuration found, great!" << endl;
                 setConfig(configs[0]);
             }
-
             else{
-                cout << "possible configs: " << configs.size() << endl;
-
                 // caculate the possibility of mine for each edge tile
                 caculateMineStat(mine_stat, configs);
 
@@ -143,12 +125,10 @@ Agent::Action MyAI::getAction( int number )
 
         // In this case, no 100% safe or 100% mine boundary tile. Make the best guess by probility
         if(actionQueue.empty()){
-            cout << endl << "-- edge Tiles hard case --" << endl;
             bestGuessbyStat(mine_stat, total_min);
         }
     }
 
-    cout << "****************** AI INFO END *************************" << endl << endl << endl << endl;
     return popActionQueue();
     // ======================================================================
     // YOUR CODE ENDS
@@ -164,7 +144,6 @@ Agent::Action MyAI::getAction( int number )
 bool MyAI::unexplore(int x, int y){
     if(!board[x][y].uncovered || board[x][y].flag) return false;
     for(auto edg: edgeTiles){
-        //int dist = abs(edg.first - x) + abs(edg.second - y);
         if(neighbor(edg, {x, y})) return false;
     }
     return true;
@@ -223,23 +202,10 @@ void MyAI::edgeTilesSegment(vector<vector<pair<int, int>>>& segment){
         i++;
     }
 
-    // for(auto edg: edgeTiles){
-    //     bool found = false;
-    //     for(int i=0; i<segment.size(); i++){
-    //         for(auto s: segment[i])
-    //             if(neighbor(edg, s)){ 
-    //                 segment[i].push_back(edg);
-    //                 found = true;
-    //                 break;
-    //             }
-    //         if(found) break;
-    //     }
-    //     if(!found) segment.push_back({edg});
-    // }
 }
 
 void MyAI::bestGuessbyStat(map<pair<int, int>, float>& stat, int& total_min){
-    if(stat.empty()) return;
+
     float min = INT_MAX;
     pair<int, int> tile;
     for(auto it:stat){
@@ -250,7 +216,7 @@ void MyAI::bestGuessbyStat(map<pair<int, int>, float>& stat, int& total_min){
     }
 
     int unexp_mines = remain_mines - total_min; // the largest number of mines in unexplored area
-    vector<pair<int, int>> unexp_tiles; // the number of tiles in unexplored area
+    vector<pair<int, int>> unexp_tiles; // the tiles in unexplored area
     for(int i=0; i<cols; i++){
         for(int j=0; j<rows; j++){
             if(unexplore(i, j)){
@@ -259,16 +225,16 @@ void MyAI::bestGuessbyStat(map<pair<int, int>, float>& stat, int& total_min){
         }
     }
 
+    if(stat.empty() && unexp_tiles.empty()) return;
+
     // unexplored area  vs  explored area
     float prob = unexp_tiles.empty() ? 1 : (float) unexp_mines / unexp_tiles.size();
     if(min <= prob){
-        cout << "min = " << min << ", (" << tile.first + 1 << ", " << tile.second + 1 << ")" << endl;
         actionQueue.push_back({UNCOVER, tile.first, tile.second});
     }
     else{
         int ri = rand() % unexp_tiles.size();
         actionQueue.push_back({UNCOVER, unexp_tiles[ri].first, unexp_tiles[ri].second});
-        cout << "do random guess, (" << unexp_tiles[ri].first+1 << ", " << unexp_tiles[ri].second+1 << ")" << endl;
     }
     
 }
@@ -349,7 +315,6 @@ void MyAI::dfsMines(vector<vector<Action>>& configs, vector<Action>& config, vec
     int x = edgTiles[index].first;
     int y = edgTiles[index].second;
     int number = board[x][y].number; 
-    //cout << "x = " << x+1 << ", y = " << y+1 << ", number = " << number << endl;
 
     // find the boundary tiles
     int mines = 0;
@@ -375,8 +340,6 @@ void MyAI::dfsMines(vector<vector<Action>>& configs, vector<Action>& config, vec
     vector<int> ary (tiles.size(), 0);
     for(int i=0; i<remain; i++) ary[ary.size()-1-i] = 1;
 
-    // for(auto a: ary) cout << a;
-    // cout << endl;
 
     vector<vector<int>> combinations = getCombination(ary);
     int tx, ty;
@@ -431,7 +394,7 @@ bool MyAI::checkBoundTiles(int x, int y){
         }
     }
 
-    int size = tiles.size(); //cout << x+1 << ", " << y+1 << " => " << size << endl;
+    int size = tiles.size();
     if(size == 0) // if have no uncovered bound tiles around the edge tile, discard it
         return false;
 

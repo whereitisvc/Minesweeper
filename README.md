@@ -24,9 +24,9 @@ current performance
 
 after considering unexplored area
 
-- easy: 847/1000
-- medium: 832/1000
-- expert: 365/1000
+- easy: 869/1000
+- medium: 841/1000
+- expert: 401/1000
 
 
 
