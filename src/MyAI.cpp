@@ -31,6 +31,8 @@ MyAI::MyAI ( int _rowDimension, int _colDimension, int _totalMines, int _agentX,
     agentX = _agentX;
     agentY = _agentY;
 
+    close = false;
+
     board = new Tile*[cols];
     for ( int index = 0; index < cols; ++index )
         board[index] = new Tile[rows];
@@ -125,7 +127,20 @@ Agent::Action MyAI::getAction( int number )
 
         // In this case, no 100% safe or 100% mine boundary tile. Make the best guess by probility
         if(actionQueue.empty()){
-            bestGuessbyStat(mine_stat, total_min);
+            bool correct = bestGuessbyStat(mine_stat, total_min);
+            if(!correct){
+                close = true;
+                int min_mine = INT_MAX;
+                vector<pair<int, int>> edgs (edgeTiles.begin(), edgeTiles.end());
+                vector<vector<Action>> configs = findMinesConfig(edgs, min_mine);
+                if(configs.size() == 1) setConfig(configs[0]);
+                else{
+                    caculateMineStat(mine_stat, configs);
+                    act2SafeTilebyStat(mine_stat);                
+                }
+                if(actionQueue.empty()) bestGuessbyStat(mine_stat, total_min);
+                close = false;
+            }
         }
     }
 
@@ -151,8 +166,24 @@ bool MyAI::unexplore(int x, int y){
 
 bool MyAI::neighbor(pair<int, int> a, pair<int, int> b){
     int dist = abs(a.first - b.first) + abs(a.second - b.second);
-    if (dist <= 2) return true;
-    return false;
+    if(dist > 2) return false;
+    else if(dist == 2){
+        int x = abs(a.first - b.first);
+        int y = abs(a.second - b.second);
+        if(x == 2 || y == 2) return false;
+    }
+    return true;
+}
+
+bool MyAI::local(pair<int, int> a, pair<int, int> b){
+    int dist = abs(a.first - b.first) + abs(a.second - b.second);
+    if(dist > 3) return false;
+    else if(dist == 3){
+        int x = abs(a.first - b.first);
+        int y = abs(a.second - b.second);
+        if(x == 3 || y == 3) return false;
+    }
+    return true;
 }
 
 void MyAI::edgeTilesSegment(vector<vector<pair<int, int>>>& segment){
@@ -174,7 +205,7 @@ void MyAI::edgeTilesSegment(vector<vector<pair<int, int>>>& segment){
     for(int i=0; i<parent.size()-1; i++){
         for(int j=i+1; j<parent.size(); j++){
             if(i == j) continue;
-            if( neighbor(idx2tile[i], idx2tile[j]) ){
+            if( local(idx2tile[i], idx2tile[j]) ){
                 // merge two set
                 if(parent[i] < parent[j]) parent[j] = parent[i];
                 else parent[i] = parent[j];
@@ -204,8 +235,9 @@ void MyAI::edgeTilesSegment(vector<vector<pair<int, int>>>& segment){
 
 }
 
-void MyAI::bestGuessbyStat(map<pair<int, int>, float>& stat, int& total_min){
+bool MyAI::bestGuessbyStat(map<pair<int, int>, float>& stat, int& total_min){
 
+    // get the bound tile with smallest prob
     float min = INT_MAX;
     pair<int, int> tile;
     for(auto it:stat){
@@ -215,6 +247,13 @@ void MyAI::bestGuessbyStat(map<pair<int, int>, float>& stat, int& total_min){
         }
     }
 
+    if(close){
+        if(!stat.empty()) actionQueue.push_back({UNCOVER, tile.first, tile.second});
+        return true;
+    }
+
+
+    // caculate the unexplored area
     int unexp_mines = remain_mines - total_min; // the largest number of mines in unexplored area
     vector<pair<int, int>> unexp_tiles; // the tiles in unexplored area
     for(int i=0; i<cols; i++){
@@ -225,18 +264,43 @@ void MyAI::bestGuessbyStat(map<pair<int, int>, float>& stat, int& total_min){
         }
     }
 
-    if(stat.empty() && unexp_tiles.empty()) return;
+    // game is finished
+    if(stat.empty() && unexp_tiles.empty()) return true;
+
+    // this is the special case when closing to the end of game
+    if(unexp_tiles.empty() && unexp_mines > 0) return false;
+
+    // all unexplore tile is safe
+    if(!unexp_tiles.empty() && unexp_mines == 0){
+        for(auto tile: unexp_tiles){
+            actionQueue.push_back({UNCOVER, tile.first, tile.second});
+        }
+        return true;
+    }
+
+    // no unexplored tile
+    if(unexp_tiles.empty()){
+        actionQueue.push_back({UNCOVER, tile.first, tile.second});
+        return true;
+    }
+
+    // no edgeTile ?
+    if(stat.empty()){
+        cout << "error" << endl;
+        return false;
+    }
 
     // unexplored area  vs  explored area
-    float prob = unexp_tiles.empty() ? 1 : (float) unexp_mines / unexp_tiles.size();
-    if(min <= prob){
+    float prob = (float) unexp_mines / unexp_tiles.size();
+    if(min < prob){
         actionQueue.push_back({UNCOVER, tile.first, tile.second});
     }
     else{
         int ri = rand() % unexp_tiles.size();
         actionQueue.push_back({UNCOVER, unexp_tiles[ri].first, unexp_tiles[ri].second});
     }
-    
+
+    return true; 
 }
 
 void MyAI::act2SafeTilebyStat(map<pair<int, int>, float>& stat){
@@ -302,6 +366,8 @@ void MyAI::dfsMines(vector<vector<Action>>& configs, vector<Action>& config, vec
     if(flagged > remain_mines) return;
     if(index == edgTiles.size()){
         //printConfig(config);
+        if(!config.empty() && close && flagged != remain_mines) return;
+
         if(!config.empty()) {
             configs.push_back(config);
 

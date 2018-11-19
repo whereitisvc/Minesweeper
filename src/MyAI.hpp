@@ -69,6 +69,8 @@ private:
 	int endX;
 	int endY;
 
+	bool close;
+
 	set<pair<int, int>> history;
 
 	vector<Action> actionQueue;			// the buffer of actions waiting to be executed
@@ -81,11 +83,12 @@ private:
 
 	bool 					unexplore(int x, int y);
 	bool 					neighbor(pair<int, int> a, pair<int, int> b);
+	bool 					local(pair<int, int> a, pair<int, int> b);
 	void 					edgeTilesSegment(vector<vector<pair<int, int>>>& segment);
 	void 					act2SafeTilebyStat(map<pair<int, int>, float>& s);
 	void 					caculateMineStat(map<pair<int, int>, float>& s, 
 											vector<vector<Action>>& c);
-	void 					bestGuessbyStat(map<pair<int, int>, float>& s, int& t);
+	bool					bestGuessbyStat(map<pair<int, int>, float>& s, int& t);
 
 	vector<vector<Action>> 	findMinesConfig(vector<pair<int, int>>& a, int& m);	// find all the possible configurations
 	void 					setConfig(vector<Action> config);			// push the config to actionQueue
