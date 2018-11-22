@@ -69,7 +69,7 @@ private:
 	int endX;
 	int endY;
 
-	bool close;
+	bool CLOSE;		// closing game
 
 	set<pair<int, int>> history;
 

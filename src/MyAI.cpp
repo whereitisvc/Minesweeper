@@ -31,7 +31,7 @@ MyAI::MyAI ( int _rowDimension, int _colDimension, int _totalMines, int _agentX,
     agentX = _agentX;
     agentY = _agentY;
 
-    close = false;
+    CLOSE = false;
 
     board = new Tile*[cols];
     for ( int index = 0; index < cols; ++index )
@@ -102,7 +102,12 @@ Agent::Action MyAI::getAction( int number )
     if(actionQueue.empty()){
 
         vector<vector<pair<int, int>>> segment;
-        edgeTilesSegment(segment);
+
+        if(CLOSE){ // when closing game, no need segmentation
+            vector<pair<int, int>> area (edgeTiles.begin(), edgeTiles.end());
+            segment.push_back({area}); 
+        }
+        else edgeTilesSegment(segment);
 
         map<pair<int, int>, float> mine_stat;
         int total_min = 0;
@@ -129,17 +134,10 @@ Agent::Action MyAI::getAction( int number )
         if(actionQueue.empty()){
             bool correct = bestGuessbyStat(mine_stat, total_min);
             if(!correct){
-                close = true;
+                CLOSE = true;
                 int min_mine = INT_MAX;
-                vector<pair<int, int>> edgs (edgeTiles.begin(), edgeTiles.end());
-                vector<vector<Action>> configs = findMinesConfig(edgs, min_mine);
-                if(configs.size() == 1) setConfig(configs[0]);
-                else{
-                    caculateMineStat(mine_stat, configs);
-                    act2SafeTilebyStat(mine_stat);                
-                }
-                if(actionQueue.empty()) bestGuessbyStat(mine_stat, total_min);
-                close = false;
+                lastAction = UNFLAG; // dummy action, not doing anything
+                return getAction(-1);
             }
         }
     }
@@ -247,7 +245,8 @@ bool MyAI::bestGuessbyStat(map<pair<int, int>, float>& stat, int& total_min){
         }
     }
 
-    if(close){
+    // closing game 
+    if(CLOSE){
         if(!stat.empty()) actionQueue.push_back({UNCOVER, tile.first, tile.second});
         return true;
     }
@@ -267,27 +266,31 @@ bool MyAI::bestGuessbyStat(map<pair<int, int>, float>& stat, int& total_min){
     // game is finished
     if(stat.empty() && unexp_tiles.empty()) return true;
 
-    // this is the special case when closing to the end of game
-    if(unexp_tiles.empty() && unexp_mines > 0) return false;
+    // no unexplored tile anymore, close game strategy
+    if(unexp_tiles.empty()){
+        return false;
+    }
 
-    // all unexplore tile is safe
-    if(!unexp_tiles.empty() && unexp_mines == 0){
+    // all unexplored tile is safe
+    if(unexp_mines == 0){
         for(auto tile: unexp_tiles){
             actionQueue.push_back({UNCOVER, tile.first, tile.second});
         }
         return true;
     }
-
-    // no unexplored tile
-    if(unexp_tiles.empty()){
-        actionQueue.push_back({UNCOVER, tile.first, tile.second});
+    if(unexp_tiles.size() == unexp_mines){
+        for(auto tile: unexp_tiles){
+            actionQueue.push_back({FLAG, tile.first, tile.second});
+        }
         return true;
-    }
+    }        
+    
 
-    // no edgeTile ?
+    // no edgeTile (all are unexplored tile)
     if(stat.empty()){
-        cout << "error" << endl;
-        return false;
+        int ri = rand() % unexp_tiles.size();
+        actionQueue.push_back({UNCOVER, unexp_tiles[ri].first, unexp_tiles[ri].second});
+        return true;
     }
 
     // unexplored area  vs  explored area
@@ -366,7 +369,7 @@ void MyAI::dfsMines(vector<vector<Action>>& configs, vector<Action>& config, vec
     if(flagged > remain_mines) return;
     if(index == edgTiles.size()){
         //printConfig(config);
-        if(!config.empty() && close && flagged != remain_mines) return;
+        if(!config.empty() && CLOSE && flagged != remain_mines) return;
 
         if(!config.empty()) {
             configs.push_back(config);
